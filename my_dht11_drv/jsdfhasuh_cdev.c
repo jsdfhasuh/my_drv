@@ -18,6 +18,7 @@
 #include "asm/uaccess.h"
 #include "linux/export.h"
 #include "linux/printk.h"
+#include "linux/timer.h"
 #include "jsdfhasuh_cdev.h"
 
 
@@ -50,7 +51,6 @@ int gpio_release (struct inode * node, struct file * file)
 // define device read function
 ssize_t gpio_read (struct file* file, char __user* user_buff, size_t sieze, loff_t * offset)
 {
-    printk("begin read\n");
     int err;
     int i;
     int result;
@@ -100,6 +100,23 @@ ssize_t gpio_write (struct file* file, const char __user* user_buff, size_t size
     return 0;
 }
 
+int gpio_fasync(int fd, struct file * file, int on)
+{
+    int error,result;
+    struct inode * inode = file_inode(file);
+    int minor = iminor(inode);
+    printk("async %d",minor);
+    error =fasync_helper (fd, file, on, &(gpio_resources[minor].gpio_fasync));
+    if (error < 0)
+    {
+        printk("fasync_helper is error");
+        return -1;
+    }
+    //setup async timer
+    result = gpio_opr -> fasync(minor, on);
+    return 1;
+}
+
 
 // define device file operation
 struct file_operations gpio_fops = {
@@ -108,6 +125,7 @@ struct file_operations gpio_fops = {
     .write = gpio_write,
     .open = gpio_open,
     .release = gpio_release,
+    .fasync =  gpio_fasync,
 };
 
 static int __init gpio_init(void)
