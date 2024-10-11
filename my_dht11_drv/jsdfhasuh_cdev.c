@@ -139,7 +139,6 @@ int jsdfhasuh_register_chrdev(void)
     int err;
     char *cdev_name= gpio_opr ->dev_name;
     major = register_chrdev(major,cdev_name,&gpio_fops);
-    // class_exist = class_find("jsdfhasuh_class"); // Removed as it is not a valid function
     if (GPIO_class == NULL)
     {
         GPIO_class = class_create(THIS_MODULE, "jsdfhasuh_class");

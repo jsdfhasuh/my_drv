@@ -1,3 +1,4 @@
+#include "linux/irqflags.h"
 #include "linux/jiffies.h"
 #include <linux/module.h>
 #include <linux/poll.h>
@@ -43,6 +44,7 @@ int g_dht11_irq_cnt = 0;
 int g_dht11_irq_time[100]={0};
 unsigned char return_datas[5];
 static struct workqueue_struct *my_wq;
+u64 time;
 
 
 static int parse_dht11_datas_save(int which)
@@ -116,11 +118,7 @@ static int parse_dht11_datas_save(int which)
 
 static irqreturn_t dht11_handler(int IRQ, void * pdevice)
 {
-	//struct gpio_desc *gpio_desc = dev_id;
-	u64 time;
-	/* 1. 记录中断发生的时间 */
-	time = ktime_get_raw_ns();
-	g_dht11_irq_time[g_dht11_irq_cnt] = time;
+	g_dht11_irq_time[g_dht11_irq_cnt] = ktime_get_raw_ns();
 	/* 2. 累计次数 */
 	g_dht11_irq_cnt++;
     //printk("g_dht11_irq_cnt is %d",g_dht11_irq_cnt);
@@ -184,12 +182,14 @@ static void async_workqueue(struct work_struct *work)
         err = gpiod_direction_output(dht11_gpios[which].gpio_info,1); 
         //spin_lock_irqsave(&dht11_gpios[which].lock, flags);
         gpiod_set_value(dht11_gpios[which].gpio_info, 1); //先拉高电平
-        spin_lock_irqsave(&dht11_gpios[which].lock, flags);
+        local_irq_disable();
+        //spin_lock_irqsave(&dht11_gpios[which].lock, flags);
         gpiod_set_value(dht11_gpios[which].gpio_info, 0);
         mdelay(16);
         err = gpiod_direction_input(dht11_gpios[which].gpio_info);
         err = request_irq(dht11_gpios[which].irq,dht11_handler,IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,"jsdfhasuh_dht11", &(dht11_gpios[which])); //注册中断'
-        spin_unlock_irqrestore(&dht11_gpios[which].lock, flags);
+        local_irq_enable();
+        //spin_unlock_irqrestore(&dht11_gpios[which].lock, flags);
         if (err <0)
         {
             printk("request_irq failed\n");
@@ -264,13 +264,15 @@ static int dht11_read(int which,char * * data_ptr_ptr,unsigned long * data_len_p
     memset(return_datas, 0, sizeof(return_datas));
     printk("read DHT11 %d\n",which);
     err = gpiod_direction_output(dht11_gpios[which].gpio_info,1); //拉低电平，发送开始信号
-    spin_lock_irqsave(&dht11_gpios[which].lock, flags);
+    local_irq_disable();
+    //spin_lock_irqsave(&dht11_gpios[which].lock, flags);
     gpiod_set_value(dht11_gpios[which].gpio_info, 1); //先拉高电平
     gpiod_set_value(dht11_gpios[which].gpio_info, 0);
     mdelay(18);
     err = gpiod_direction_input(dht11_gpios[which].gpio_info);
     err = request_irq(dht11_gpios[which].irq,dht11_handler,IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,"jsdfhasuh_dht11", &(dht11_gpios[which])); //注册中断'
-    spin_unlock_irqrestore(&dht11_gpios[which].lock, flags);
+    local_irq_enable();
+    //spin_unlock_irqrestore(&dht11_gpios[which].lock, flags);
     if (err <0)
     {
         printk("request_irq failed\n");
