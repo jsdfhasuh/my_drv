@@ -134,7 +134,6 @@ static irqreturn_t dht11_handler(int IRQ, void * pdevice)
 
 static void key_timer_expire(unsigned long data)
 {
-
     gpio_resource * dht11_gpio;
     dht11_gpio = (gpio_resource *)data;
     printk("timeout\n");
